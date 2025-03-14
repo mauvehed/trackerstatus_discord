@@ -79,11 +79,11 @@ async def get_tracker_statuses() -> Dict[str, Dict[str, Union[int, str]]]:
         last_api_call = time.time()
         return cast(Dict[str, Dict[str, Union[int, str]]], statuses)
 
-# Status emoji mapping (0=Online, 1=Unstable, 2=Offline)
+# Status emoji mapping
 STATUS_EMOJI = {
-    1: "🟢",  # Online
-    2: "🟡",  # Unstable
-    0: "🔴",  # Offline
+    1: "🟢",  # Online (status_code=1)
+    2: "🟡",  # Unstable (status_code=2)
+    0: "🔴",  # Offline (status_code=0)
 }
 
 # Status descriptions
@@ -118,11 +118,6 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 
 # Type aliases
 GuildConfig = Dict[str, Dict[str, Dict[str, Any]]]
-
-class StatusCheck(TypedDict):
-    timestamp: datetime
-    status_code: int
-    response_time: float
 
 def load_config() -> GuildConfig:
     """Load the configuration from file or return empty config."""
