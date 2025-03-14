@@ -35,21 +35,21 @@ logger = logging.getLogger('trackerstatus_bot')
 # Load environment variables
 load_dotenv()
 
-# Initialize API client and endpoints
-api_client = APIClient()
-status_api = StatusEndpoint(api_client)
-
-# Initialize individual tracker endpoints
+# Initialize API clients for each tracker with their specific subdomains
 TRACKER_ENDPOINTS = {
-    "ant": ANTEndpoint(api_client),
-    "ar": AREndpoint(api_client),
-    "btn": BTNEndpoint(api_client),
-    "ggn": GGNEndpoint(api_client),
-    "nbl": NBLEndpoint(api_client),
-    "ops": OPSEndpoint(api_client),
-    "ptp": PTPEndpoint(api_client),
-    "red": REDEndpoint(api_client),
+    "ant": ANTEndpoint(APIClient(base_url="https://ant.trackerstatus.info/api")),
+    "ar": AREndpoint(APIClient(base_url="https://ar.trackerstatus.info/api")),
+    "btn": BTNEndpoint(APIClient(base_url="https://btn.trackerstatus.info/api")),
+    "ggn": GGNEndpoint(APIClient(base_url="https://ggn.trackerstatus.info/api")),
+    "nbl": NBLEndpoint(APIClient(base_url="https://nbl.trackerstatus.info/api")),
+    "ops": OPSEndpoint(APIClient(base_url="https://ops.trackerstatus.info/api")),
+    "ptp": PTPEndpoint(APIClient(base_url="https://ptp.trackerstatus.info/api")),
+    "red": REDEndpoint(APIClient(base_url="https://red.trackerstatus.info/api")),
 }
+
+# Initialize main API client for general status checks
+api_client = APIClient(base_url="https://trackerstatus.info/api")
+status_api = StatusEndpoint(api_client)
 
 # Track last API call time
 last_api_call: float = 0.0
@@ -79,14 +79,14 @@ async def get_tracker_statuses() -> Dict[str, Dict[str, Union[int, str]]]:
         last_api_call = time.time()
         return cast(Dict[str, Dict[str, Union[int, str]]], statuses)
 
-# Status emoji mapping
+# Status emoji mapping (1=Online, 2=Unstable, 0=Offline)
 STATUS_EMOJI = {
     1: "🟢",  # Online
     2: "🟡",  # Unstable
     0: "🔴",  # Offline
 }
 
-# Status descriptions
+# Status descriptions (1=Online, 2=Unstable, 0=Offline)
 STATUS_DESC = {
     1: "ONLINE - perfect response over the past 3 minutes",
     2: "UNSTABLE - intermittent responses over the past 3 minutes",
@@ -116,16 +116,15 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 CONFIG_DIR = "/app/data"
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 
-# Type aliases
-GuildConfig = Dict[str, Dict[str, Dict[str, Any]]]
-
-class StatusEntry(TypedDict):
-    status_code: int
-    status_message: str
-    timestamp: str
-    response_time: float
-
+# Type aliases for configuration
 class TrackerConfig(TypedDict):
+    """Configuration for a tracked tracker in a guild channel.
+    
+    Attributes:
+        channel_id: The Discord channel ID where notifications are sent
+        last_status: The last known status code (1=Online, 2=Unstable, 0=Offline)
+        last_check: ISO format timestamp of the last status check
+    """
     channel_id: int
     last_status: Optional[int]
     last_check: Optional[str]
@@ -489,7 +488,13 @@ async def before_check_trackers() -> None:
     for code in TRACKER_NAMES.keys()
 ])
 async def trackerlatency(interaction: discord.Interaction, tracker: str) -> None:
-    """Get latency metrics for a specific tracker."""
+    """Get latency metrics for a specific tracker.
+    
+    Retrieves current status and latency information for all services of the tracker.
+    Displays:
+    - Current tracker status (Online/Unstable/Offline)
+    - Status and latency for each service
+    """
     await interaction.response.defer(ephemeral=True)
     
     try:
@@ -552,7 +557,13 @@ async def trackerlatency(interaction: discord.Interaction, tracker: str) -> None
     for code in TRACKER_NAMES.keys()
 ])
 async def trackeruptime(interaction: discord.Interaction, tracker: str) -> None:
-    """Get uptime statistics for a specific tracker."""
+    """Get uptime statistics for a specific tracker.
+    
+    Retrieves current status and uptime information for all services of the tracker.
+    Displays:
+    - Current tracker status (Online/Unstable/Offline)
+    - Status for each service
+    """
     await interaction.response.defer(ephemeral=True)
     
     try:
@@ -614,7 +625,13 @@ async def trackeruptime(interaction: discord.Interaction, tracker: str) -> None:
     for code in TRACKER_NAMES.keys()
 ])
 async def trackerrecord(interaction: discord.Interaction, tracker: str) -> None:
-    """Get record uptimes for a specific tracker."""
+    """Get record uptimes for a specific tracker.
+    
+    Retrieves current status and uptime records for all services of the tracker.
+    Displays:
+    - Current tracker status (Online/Unstable/Offline)
+    - Status and uptime duration for each service
+    """
     await interaction.response.defer(ephemeral=True)
     
     try:
