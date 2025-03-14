@@ -13,10 +13,6 @@ RUN apt-get update && \
 # Install Poetry
 RUN curl -sSL https://install.python-poetry.org | python3 -
 
-# Create initial config file
-RUN echo '{"guilds": {}}' > /app/config.json && \
-    chmod 644 /app/config.json
-
 # Copy project metadata files first
 COPY pyproject.toml poetry.lock README.md ./
 

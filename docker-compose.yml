@@ -5,9 +5,7 @@ services:
     image: ghcr.io/mauvehed/trackerstatus_discord:main
     container_name: trackerstatus_bot
     volumes:
-      - type: bind
-        source: ./config.json
-        target: /app/config.json
+      - ./config.json:/app/config.json
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
     restart: unless-stopped 
