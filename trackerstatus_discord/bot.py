@@ -37,18 +37,18 @@ load_dotenv()
 
 # Initialize API clients for each tracker with their specific subdomains
 TRACKER_ENDPOINTS = {
-    "ant": ANTEndpoint(APIClient(base_url="https://ant.trackerstatus.info/api")),
-    "ar": AREndpoint(APIClient(base_url="https://ar.trackerstatus.info/api")),
-    "btn": BTNEndpoint(APIClient(base_url="https://btn.trackerstatus.info/api")),
-    "ggn": GGNEndpoint(APIClient(base_url="https://ggn.trackerstatus.info/api")),
-    "nbl": NBLEndpoint(APIClient(base_url="https://nbl.trackerstatus.info/api")),
-    "ops": OPSEndpoint(APIClient(base_url="https://ops.trackerstatus.info/api")),
-    "ptp": PTPEndpoint(APIClient(base_url="https://ptp.trackerstatus.info/api")),
-    "red": REDEndpoint(APIClient(base_url="https://red.trackerstatus.info/api")),
+    "ant": ANTEndpoint(APIClient(base_url="https://ant.trackerstatus.info")),
+    "ar": AREndpoint(APIClient(base_url="https://ar.trackerstatus.info")),
+    "btn": BTNEndpoint(APIClient(base_url="https://btn.trackerstatus.info")),
+    "ggn": GGNEndpoint(APIClient(base_url="https://ggn.trackerstatus.info")),
+    "nbl": NBLEndpoint(APIClient(base_url="https://nbl.trackerstatus.info")),
+    "ops": OPSEndpoint(APIClient(base_url="https://ops.trackerstatus.info")),
+    "ptp": PTPEndpoint(APIClient(base_url="https://ptp.trackerstatus.info")),
+    "red": REDEndpoint(APIClient(base_url="https://red.trackerstatus.info")),
 }
 
 # Initialize main API client for general status checks
-api_client = APIClient(base_url="https://trackerstatus.info/api")
+api_client = APIClient(base_url="https://trackerstatus.info")
 status_api = StatusEndpoint(api_client)
 
 # Track last API call time
