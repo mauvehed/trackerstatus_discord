@@ -119,6 +119,21 @@ CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 # Type aliases
 GuildConfig = Dict[str, Dict[str, Dict[str, Any]]]
 
+class StatusEntry(TypedDict):
+    status_code: int
+    status_message: str
+    timestamp: str
+    response_time: float
+
+class TrackerConfig(TypedDict):
+    channel_id: int
+    last_status: Optional[int]
+    last_check: Optional[str]
+    history: list[StatusEntry]
+
+GuildTrackers = Dict[str, TrackerConfig]
+GuildConfigType = Dict[str, Dict[str, GuildTrackers]]
+
 def load_config() -> GuildConfig:
     """Load the configuration from file or return empty config."""
     try:
@@ -261,7 +276,8 @@ async def trackeradd(
     config[guild_id]["trackers"][tracker] = {
         "channel_id": channel.id,
         "last_status": None,
-        "last_check": None
+        "last_check": None,
+        "history": []  # Add history tracking
     }
 
     save_config(config)
@@ -440,10 +456,32 @@ async def check_trackers() -> None:
                         )
                         await channel.send(embed=embed)
 
-                        # Update the last known status
+                        # Update history
+                        now = datetime.now().isoformat()
+                        history_entry: StatusEntry = {
+                            "status_code": status_code,
+                            "status_message": status_message,
+                            "timestamp": now,
+                            "response_time": float(status_info.get('response_time', 0))
+                        }
+                        
+                        # Keep last 30 days of history
+                        thirty_days_ago = (
+                            datetime.now() - timedelta(days=30)
+                        ).isoformat()
+                        
+                        history = tracker_data.get("history", [])
+                        history = [
+                            entry for entry in history 
+                            if entry["timestamp"] > thirty_days_ago
+                        ]
+                        history.append(history_entry)
+                        
+                        # Update the last known status and history
                         config[guild_id]["trackers"][tracker_name].update({
                             "last_status": status_code,
-                            "last_check": datetime.now().isoformat()
+                            "last_check": now,
+                            "history": history
                         })
                         save_config(config)
 
@@ -481,13 +519,16 @@ async def trackerlatency(interaction: discord.Interaction, tracker: str) -> None
             )
             return
 
-        # Get latency from the tracker endpoint
+        # Get tracker info using the library's endpoint
         endpoint = TRACKER_ENDPOINTS[tracker]
         loop = asyncio.get_event_loop()
-        latency_info = await loop.run_in_executor(None, endpoint.get_latency)
-        all_info = await loop.run_in_executor(None, endpoint.get_all)
         
-        # Create embed with latency information
+        # Get all tracker info including status and services
+        tracker_info = await loop.run_in_executor(None, endpoint.get_all)
+        status = tracker_info.get('status', {})
+        current_status = int(status.get('status_code', 0))
+        
+        # Create embed
         embed = discord.Embed(
             title=f"Latency Information for {TRACKER_NAMES[tracker]}",
             color=discord.Color.blue(),
@@ -495,19 +536,21 @@ async def trackerlatency(interaction: discord.Interaction, tracker: str) -> None
         )
         
         # Add current status
-        status_code = all_info['status'].get('status_code', 0)
-        status_desc = STATUS_DESC.get(status_code, "Unknown")
+        status_desc = STATUS_DESC.get(current_status, "Unknown")
         embed.add_field(
             name="Current Status",
-            value=f"{STATUS_EMOJI.get(status_code, '❓')} {status_desc}",
+            value=f"{STATUS_EMOJI.get(current_status, '❓')} {status_desc}",
             inline=False
         )
         
-        # Add latency information
-        for service, latency in latency_info.items():
+        # Add service latency information
+        services = tracker_info.get('services', {})
+        for service_name, service_data in services.items():
+            latency = service_data.get('latency', 0)
+            status = "✅ Online" if service_data.get('online') else "❌ Offline"
             embed.add_field(
-                name=f"{service} Latency",
-                value=f"{latency}ms",
+                name=service_name,
+                value=f"{status}\nLatency: {latency}ms",
                 inline=True
             )
         
@@ -539,14 +582,16 @@ async def trackeruptime(interaction: discord.Interaction, tracker: str) -> None:
             )
             return
 
-        # Get uptime information from the tracker endpoint
+        # Get current status and uptime info using the library's endpoint
         endpoint = TRACKER_ENDPOINTS[tracker]
         loop = asyncio.get_event_loop()
-        uptime_info = await loop.run_in_executor(None, endpoint.get_uptime)
-        downtime_info = await loop.run_in_executor(None, endpoint.get_downtime)
-        all_info = await loop.run_in_executor(None, endpoint.get_all)
         
-        # Create embed with uptime information
+        # Get all tracker info including status and uptime
+        tracker_info = await loop.run_in_executor(None, endpoint.get_all)
+        status = tracker_info.get('status', {})
+        current_status = int(status.get('status_code', 0))
+        
+        # Create embed
         embed = discord.Embed(
             title=f"Uptime Statistics for {TRACKER_NAMES[tracker]}",
             color=discord.Color.blue(),
@@ -554,29 +599,20 @@ async def trackeruptime(interaction: discord.Interaction, tracker: str) -> None:
         )
         
         # Add current status
-        status_code = all_info['status'].get('status_code', 0)
-        status_desc = STATUS_DESC.get(status_code, "Unknown")
+        status_desc = STATUS_DESC.get(current_status, "Unknown")
         embed.add_field(
             name="Current Status",
-            value=f"{STATUS_EMOJI.get(status_code, '❓')} {status_desc}",
+            value=f"{STATUS_EMOJI.get(current_status, '❓')} {status_desc}",
             inline=False
         )
         
-        # Add uptime information
-        for service, uptime in uptime_info.items():
-            hours = uptime / 60  # Convert minutes to hours
+        # Add service status information
+        services = tracker_info.get('services', {})
+        for service_name, service_data in services.items():
+            status = "✅ Online" if service_data.get('online') else "❌ Offline"
             embed.add_field(
-                name=f"{service} Uptime",
-                value=f"{hours:.1f} hours",
-                inline=True
-            )
-        
-        # Add downtime information
-        for service, downtime in downtime_info.items():
-            hours = downtime / 60  # Convert minutes to hours
-            embed.add_field(
-                name=f"{service} Current Downtime",
-                value=f"{hours:.1f} hours",
+                name=service_name,
+                value=status,
                 inline=True
             )
         
@@ -608,43 +644,47 @@ async def trackerrecord(interaction: discord.Interaction, tracker: str) -> None:
             )
             return
 
-        # Get record information from the tracker endpoint
+        # Get tracker info using the library's endpoint
         endpoint = TRACKER_ENDPOINTS[tracker]
         loop = asyncio.get_event_loop()
-        records = await loop.run_in_executor(None, endpoint.get_records)
-        all_info = await loop.run_in_executor(None, endpoint.get_all)
         
-        # Create embed with record information
+        # Get all tracker info including status and services
+        tracker_info = await loop.run_in_executor(None, endpoint.get_all)
+        status = tracker_info.get('status', {})
+        current_status = int(status.get('status_code', 0))
+        
+        # Create embed
         embed = discord.Embed(
-            title=f"Record Uptimes for {TRACKER_NAMES[tracker]}",
+            title=f"Record Statistics for {TRACKER_NAMES[tracker]}",
             color=discord.Color.blue(),
             timestamp=datetime.now()
         )
         
         # Add current status
-        status_code = all_info['status'].get('status_code', 0)
-        status_desc = STATUS_DESC.get(status_code, "Unknown")
+        status_desc = STATUS_DESC.get(current_status, "Unknown")
         embed.add_field(
             name="Current Status",
-            value=f"{STATUS_EMOJI.get(status_code, '❓')} {status_desc}",
+            value=f"{STATUS_EMOJI.get(current_status, '❓')} {status_desc}",
             inline=False
         )
         
-        # Add record information
-        for service, record in records.items():
-            days = record / (60 * 24)  # Convert minutes to days
+        # Add service record information
+        services = tracker_info.get('services', {})
+        for service_name, service_data in services.items():
+            uptime = service_data.get('uptime', 0)
+            status = "✅ Online" if service_data.get('online') else "❌ Offline"
             embed.add_field(
-                name=f"{service} Record Uptime",
-                value=f"{days:.1f} days",
+                name=service_name,
+                value=f"{status}\nUptime: {uptime} minutes",
                 inline=True
             )
         
         await interaction.followup.send(embed=embed, ephemeral=True)
         
     except Exception as e:
-        logger.error(f"Error getting record uptimes for {tracker}: {e}")
+        logger.error(f"Error getting record statistics for {tracker}: {e}")
         await interaction.followup.send(
-            f"Error getting record uptimes for {TRACKER_NAMES[tracker]}: {str(e)}",
+            f"Error getting record statistics for {TRACKER_NAMES[tracker]}: {str(e)}",
             ephemeral=True
         )
 
