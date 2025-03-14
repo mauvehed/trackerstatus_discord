@@ -22,8 +22,8 @@ COPY main.py ./
 ENV POETRY_NO_INTERACTION=1 \
     POETRY_VIRTUALENVS_CREATE=false
 
-# Install dependencies
-RUN /root/.local/bin/poetry install --no-dev
+# Install dependencies (production only)
+RUN /root/.local/bin/poetry install --only main
 
 # Run the bot
 CMD ["/root/.local/bin/poetry", "run", "python", "main.py"] 
