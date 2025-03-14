@@ -41,7 +41,39 @@ All commands require administrator permissions in the Discord server:
 
 ## Deployment Options
 
-### Option 1: Local Installation
+### Option 1: Using Pre-built Docker Image (Recommended)
+
+1. Create a new directory for the bot:
+```bash
+mkdir trackerstatus_bot && cd trackerstatus_bot
+```
+
+2. Create a `.env` file with your Discord bot token:
+```bash
+echo "DISCORD_TOKEN=your_discord_bot_token_here" > .env
+```
+
+3. Create a docker-compose.yml file:
+```yaml
+version: '3.8'
+
+services:
+  bot:
+    image: ghcr.io/mauvehed/trackerstatus_discord:main
+    container_name: trackerstatus_bot
+    volumes:
+      - ./config.json:/app/config.json
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+    restart: unless-stopped
+```
+
+4. Start the bot:
+```bash
+docker compose up -d
+```
+
+### Option 2: Local Installation
 
 1. Clone the repository:
 ```bash
@@ -64,7 +96,7 @@ DISCORD_TOKEN=your_discord_bot_token_here
 poetry run python main.py
 ```
 
-### Option 2: Docker Deployment
+### Option 3: Building Docker Image Locally
 
 1. Clone the repository:
 ```bash
@@ -72,25 +104,26 @@ git clone https://github.com/mauvehed/trackerstatus_discord.git
 cd trackerstatus_discord
 ```
 
-2. Create a `.env` file with your Discord bot token:
+2. Build the Docker image:
 ```bash
-DISCORD_TOKEN=your_discord_bot_token_here
+docker build -t trackerstatus_discord .
 ```
 
-3. Build and start the container:
+3. Run the container:
 ```bash
-docker compose up -d
+docker run -e DISCORD_TOKEN=your_discord_bot_token_here -v $(pwd)/config.json:/app/config.json trackerstatus_discord
 ```
 
-The bot will automatically restart unless stopped manually. To view the logs:
-```bash
-docker compose logs -f
-```
+## Docker Tags
 
-To stop the bot:
-```bash
-docker compose down
-```
+The bot's Docker image is automatically built and published to GitHub Container Registry with the following tags:
+
+- `main` - Latest version from the main branch
+- `vX.Y.Z` - Release versions (e.g., v1.0.0)
+- `vX.Y` - Major.Minor version (e.g., v1.0)
+- `sha-XXXXXXX` - Specific commit hash
+
+You can use any of these tags in your docker-compose.yml file by replacing `main` with the desired tag.
 
 ## Configuration
 
