@@ -101,7 +101,8 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Configuration file path
-CONFIG_FILE = "/app/config.json"
+CONFIG_DIR = "/app/data"
+CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 
 # Type aliases
 GuildConfig = Dict[str, Dict[str, Dict[str, Any]]]
@@ -110,13 +111,8 @@ GuildConfig = Dict[str, Dict[str, Dict[str, Any]]]
 def load_config() -> GuildConfig:
     """Load the configuration from file or return empty config."""
     try:
-        # Check if CONFIG_FILE is a directory
-        if os.path.isdir(CONFIG_FILE):
-            logger.warning(f"{CONFIG_FILE} is a directory, removing it...")
-            os.rmdir(CONFIG_FILE)
-        
-        # Create parent directory if it doesn't exist
-        os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+        # Create config directory if it doesn't exist
+        os.makedirs(CONFIG_DIR, exist_ok=True)
         
         # Try to load existing config
         if os.path.isfile(CONFIG_FILE):
@@ -137,8 +133,8 @@ def load_config() -> GuildConfig:
 def save_config(config: GuildConfig) -> None:
     """Save the configuration to file."""
     try:
-        # Ensure parent directory exists
-        os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+        # Ensure config directory exists
+        os.makedirs(CONFIG_DIR, exist_ok=True)
         
         # Write config with temporary file
         temp_file = f"{CONFIG_FILE}.tmp"
