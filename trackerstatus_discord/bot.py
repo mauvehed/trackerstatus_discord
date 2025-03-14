@@ -486,50 +486,35 @@ async def trackerlatency(interaction: discord.Interaction, tracker: str) -> None
             )
             return
 
-        # Get status history from the tracker endpoint
+        # Get latency from the tracker endpoint
         endpoint = TRACKER_ENDPOINTS[tracker]
         loop = asyncio.get_event_loop()
-        history: list[StatusCheck] = await loop.run_in_executor(None, endpoint.get_status_history)
+        latency_info = await loop.run_in_executor(None, endpoint.get_latency)
+        all_info = await loop.run_in_executor(None, endpoint.get_all)
         
-        # Calculate latency metrics from history
-        now = datetime.now()
-        day_ago = now - timedelta(days=1)
-        recent_checks = [check for check in history if check['timestamp'] >= day_ago]
-        
-        if not recent_checks:
-            await interaction.followup.send(
-                f"No recent status checks available for {TRACKER_NAMES[tracker]}",
-                ephemeral=True
-            )
-            return
-        
-        # Calculate metrics
-        current_latency = recent_checks[-1].get('response_time', 0)
-        latencies = [check.get('response_time', 0) for check in recent_checks if check.get('response_time', 0) > 0]
-        avg_latency = sum(latencies) / len(latencies) if latencies else 0
-        peak_latency = max(latencies) if latencies else 0
-        
+        # Create embed with latency information
         embed = discord.Embed(
-            title=f"Latency Metrics for {TRACKER_NAMES[tracker]}",
+            title=f"Latency Information for {TRACKER_NAMES[tracker]}",
             color=discord.Color.blue(),
             timestamp=datetime.now()
         )
         
+        # Add current status
+        status_code = all_info['status'].get('status_code', 0)
+        status_desc = STATUS_DESC.get(status_code, "Unknown")
         embed.add_field(
-            name="Current Latency",
-            value=f"{current_latency:.2f}ms" if current_latency > 0 else "No response",
-            inline=True
+            name="Current Status",
+            value=f"{STATUS_EMOJI.get(status_code, '❓')} {status_desc}",
+            inline=False
         )
-        embed.add_field(
-            name="Average Latency (24h)",
-            value=f"{avg_latency:.2f}ms",
-            inline=True
-        )
-        embed.add_field(
-            name="Peak Latency (24h)",
-            value=f"{peak_latency:.2f}ms",
-            inline=True
-        )
+        
+        # Add latency information
+        for service, latency in latency_info.items():
+            embed.add_field(
+                name=f"{service} Latency",
+                value=f"{latency}ms",
+                inline=True
+            )
         
         await interaction.followup.send(embed=embed, ephemeral=True)
         
@@ -559,53 +544,46 @@ async def trackeruptime(interaction: discord.Interaction, tracker: str) -> None:
             )
             return
 
-        # Get status history from the tracker endpoint
+        # Get uptime information from the tracker endpoint
         endpoint = TRACKER_ENDPOINTS[tracker]
         loop = asyncio.get_event_loop()
-        history: list[StatusCheck] = await loop.run_in_executor(None, endpoint.get_status_history)
+        uptime_info = await loop.run_in_executor(None, endpoint.get_uptime)
+        downtime_info = await loop.run_in_executor(None, endpoint.get_downtime)
+        all_info = await loop.run_in_executor(None, endpoint.get_all)
         
-        # Calculate uptime statistics
-        now = datetime.now()
-        day_ago = now - timedelta(days=1)
-        week_ago = now - timedelta(days=7)
-        month_ago = now - timedelta(days=30)
-        
-        def calculate_uptime(start_time: datetime) -> float:
-            checks = [check for check in history if check['timestamp'] >= start_time]
-            if not checks:
-                return 0.0
-            online_checks = len([check for check in checks if check['status_code'] == 1])
-            return (online_checks / len(checks)) * 100
-        
-        # Get current status
-        current_status = history[-1]['status_code'] if history else 0
-        
+        # Create embed with uptime information
         embed = discord.Embed(
             title=f"Uptime Statistics for {TRACKER_NAMES[tracker]}",
             color=discord.Color.blue(),
             timestamp=datetime.now()
         )
         
+        # Add current status
+        status_code = all_info['status'].get('status_code', 0)
+        status_desc = STATUS_DESC.get(status_code, "Unknown")
         embed.add_field(
             name="Current Status",
-            value=f"{STATUS_EMOJI.get(current_status, '❓')} {STATUS_DESC.get(current_status, 'Unknown')}",
+            value=f"{STATUS_EMOJI.get(status_code, '❓')} {status_desc}",
             inline=False
         )
-        embed.add_field(
-            name="Uptime (24h)",
-            value=f"{calculate_uptime(day_ago):.2f}%",
-            inline=True
-        )
-        embed.add_field(
-            name="Uptime (7d)",
-            value=f"{calculate_uptime(week_ago):.2f}%",
-            inline=True
-        )
-        embed.add_field(
-            name="Uptime (30d)",
-            value=f"{calculate_uptime(month_ago):.2f}%",
-            inline=True
-        )
+        
+        # Add uptime information
+        for service, uptime in uptime_info.items():
+            hours = uptime / 60  # Convert minutes to hours
+            embed.add_field(
+                name=f"{service} Uptime",
+                value=f"{hours:.1f} hours",
+                inline=True
+            )
+        
+        # Add downtime information
+        for service, downtime in downtime_info.items():
+            hours = downtime / 60  # Convert minutes to hours
+            embed.add_field(
+                name=f"{service} Current Downtime",
+                value=f"{hours:.1f} hours",
+                inline=True
+            )
         
         await interaction.followup.send(embed=embed, ephemeral=True)
         
@@ -635,119 +613,34 @@ async def trackerrecord(interaction: discord.Interaction, tracker: str) -> None:
             )
             return
 
-        # Get status history from the tracker endpoint
+        # Get record information from the tracker endpoint
         endpoint = TRACKER_ENDPOINTS[tracker]
         loop = asyncio.get_event_loop()
-        history: list[StatusCheck] = await loop.run_in_executor(None, endpoint.get_status_history)
+        records = await loop.run_in_executor(None, endpoint.get_records)
+        all_info = await loop.run_in_executor(None, endpoint.get_all)
         
-        if not history:
-            await interaction.followup.send(
-                f"No status history available for {TRACKER_NAMES[tracker]}",
-                ephemeral=True
-            )
-            return
-        
-        # Find longest uptime and downtime periods
-        class Period(TypedDict):
-            duration: timedelta
-            start: Optional[datetime]
-            end: Optional[datetime]
-            
-        longest_up: Period = {'duration': timedelta(0), 'start': None, 'end': None}
-        longest_down: Period = {'duration': timedelta(0), 'start': None, 'end': None}
-        current_up: Period = {'duration': timedelta(0), 'start': None, 'end': None}
-        current_down: Period = {'duration': timedelta(0), 'start': None, 'end': None}
-        
-        for i, check in enumerate(history):
-            timestamp = check['timestamp']
-            is_up = check['status_code'] == 1
-            
-            if is_up:
-                if current_up['start'] is None:
-                    current_up['start'] = timestamp
-                current_up['end'] = timestamp
-                if current_up['start'] is not None and current_up['end'] is not None:
-                    current_up['duration'] = current_up['end'] - current_up['start']
-                
-                if current_down['start'] is not None and current_down['end'] is not None:
-                    current_down['duration'] = current_down['end'] - current_down['start']
-                    if current_down['duration'] > longest_down['duration']:
-                        longest_down.update(current_down)
-                    current_down = {'duration': timedelta(0), 'start': None, 'end': None}
-            else:
-                if current_down['start'] is None:
-                    current_down['start'] = timestamp
-                current_down['end'] = timestamp
-                if current_down['start'] is not None and current_down['end'] is not None:
-                    current_down['duration'] = current_down['end'] - current_down['start']
-                
-                if current_up['start'] is not None and current_up['end'] is not None:
-                    current_up['duration'] = current_up['end'] - current_up['start']
-                    if current_up['duration'] > longest_up['duration']:
-                        longest_up.update(current_up)
-                    current_up = {'duration': timedelta(0), 'start': None, 'end': None}
-        
-        # Calculate monthly statistics
-        months = {}
-        for check in history:
-            timestamp = check['timestamp']
-            month_key = timestamp.strftime('%Y-%m')
-            if month_key not in months:
-                months[month_key] = {'total': 0, 'online': 0}
-            months[month_key]['total'] += 1
-            if check['status_code'] == 1:
-                months[month_key]['online'] += 1
-        
-        monthly_uptimes = {
-            month: (data['online'] / data['total'] * 100)
-            for month, data in months.items()
-            if data['total'] >= 100  # Only consider months with sufficient data
-        }
-        
-        best_month = max(monthly_uptimes.items(), key=lambda x: x[1]) if monthly_uptimes else (None, 0)
-        worst_month = min(monthly_uptimes.items(), key=lambda x: x[1]) if monthly_uptimes else (None, 0)
-        
+        # Create embed with record information
         embed = discord.Embed(
             title=f"Record Uptimes for {TRACKER_NAMES[tracker]}",
             color=discord.Color.blue(),
             timestamp=datetime.now()
         )
         
-        if longest_up['start'] and longest_up['end'] and longest_up['duration']:
-            duration_hours = longest_up['duration'].total_seconds() / 3600
-            start_time = longest_up['start'].strftime('%Y-%m-%d %H:%M:%S')
-            end_time = longest_up['end'].strftime('%Y-%m-%d %H:%M:%S')
-            embed.add_field(
-                name="Longest Uptime",
-                value=f"{duration_hours:.1f} hours\n"
-                      f"From: {start_time}\n"
-                      f"To: {end_time}",
-                inline=False
-            )
+        # Add current status
+        status_code = all_info['status'].get('status_code', 0)
+        status_desc = STATUS_DESC.get(status_code, "Unknown")
+        embed.add_field(
+            name="Current Status",
+            value=f"{STATUS_EMOJI.get(status_code, '❓')} {status_desc}",
+            inline=False
+        )
         
-        if longest_down['start'] and longest_down['end'] and longest_down['duration']:
-            duration_hours = longest_down['duration'].total_seconds() / 3600
-            start_time = longest_down['start'].strftime('%Y-%m-%d %H:%M:%S')
-            end_time = longest_down['end'].strftime('%Y-%m-%d %H:%M:%S')
+        # Add record information
+        for service, record in records.items():
+            days = record / (60 * 24)  # Convert minutes to days
             embed.add_field(
-                name="Longest Downtime",
-                value=f"{duration_hours:.1f} hours\n"
-                      f"From: {start_time}\n"
-                      f"To: {end_time}",
-                inline=False
-            )
-        
-        if best_month[0]:
-            embed.add_field(
-                name="Best Monthly Uptime",
-                value=f"{best_month[1]:.2f}%\nMonth: {best_month[0]}",
-                inline=True
-            )
-        
-        if worst_month[0]:
-            embed.add_field(
-                name="Worst Monthly Uptime",
-                value=f"{worst_month[1]:.2f}%\nMonth: {worst_month[0]}",
+                name=f"{service} Record Uptime",
+                value=f"{days:.1f} days",
                 inline=True
             )
         
