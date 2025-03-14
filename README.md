@@ -34,16 +34,10 @@ The bot reports three different status types:
 
 All commands require administrator permissions in the Discord server:
 
-### Tracker Management
 - `/trackeravailable` - Lists all available trackers that can be monitored
 - `/trackeradd <tracker> <channel>` - Start monitoring a tracker and send notifications to the specified channel
 - `/trackerremove <tracker> <channel>` - Stop monitoring a tracker in the specified channel
 - `/trackerlist` - Show all currently monitored trackers and their notification channels
-
-### Tracker Statistics
-- `/trackerlatency <tracker>` - Get detailed latency metrics for a tracker (current, average, peak)
-- `/trackeruptime <tracker>` - Get uptime statistics for a tracker (24h, 7d, 30d)
-- `/trackerrecord <tracker>` - Get record uptimes for a tracker (longest up/down times, best/worst monthly)
 
 ## Deployment Options
 
