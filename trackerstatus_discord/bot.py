@@ -35,7 +35,7 @@ logger = logging.getLogger('trackerstatus_bot')
 # Load environment variables
 load_dotenv()
 
-# Initialize API client
+# Initialize API client and endpoints
 api_client = APIClient()
 status_api = StatusEndpoint(api_client)
 
@@ -81,9 +81,9 @@ async def get_tracker_statuses() -> Dict[str, Dict[str, Union[int, str]]]:
 
 # Status emoji mapping
 STATUS_EMOJI = {
-    1: "🟢",  # Online (status_code=1)
-    2: "🟡",  # Unstable (status_code=2)
-    0: "🔴",  # Offline (status_code=0)
+    1: "🟢",  # Online
+    2: "🟡",  # Unstable
+    0: "🔴",  # Offline
 }
 
 # Status descriptions
@@ -129,12 +129,11 @@ class TrackerConfig(TypedDict):
     channel_id: int
     last_status: Optional[int]
     last_check: Optional[str]
-    history: list[StatusEntry]
 
 GuildTrackers = Dict[str, TrackerConfig]
 GuildConfigType = Dict[str, Dict[str, GuildTrackers]]
 
-def load_config() -> GuildConfig:
+def load_config() -> GuildConfigType:
     """Load the configuration from file or return empty config."""
     try:
         # Create config directory if it doesn't exist
@@ -143,11 +142,11 @@ def load_config() -> GuildConfig:
         # Try to load existing config
         if os.path.isfile(CONFIG_FILE):
             with open(CONFIG_FILE, "r") as f:
-                return cast(GuildConfig, json.load(f))
+                return cast(GuildConfigType, json.load(f))
         
         # Create new config if file doesn't exist
         logger.info(f"Creating new config file at {CONFIG_FILE}")
-        empty_config: GuildConfig = {"guilds": {}}
+        empty_config: GuildConfigType = {"guilds": {}}
         save_config(empty_config)
         return empty_config
         
@@ -156,7 +155,7 @@ def load_config() -> GuildConfig:
         return {"guilds": {}}
 
 
-def save_config(config: GuildConfig) -> None:
+def save_config(config: GuildConfigType) -> None:
     """Save the configuration to file."""
     try:
         # Ensure config directory exists
@@ -176,7 +175,7 @@ def save_config(config: GuildConfig) -> None:
 
 
 # Initialize configuration
-config: GuildConfig = load_config()
+config: GuildConfigType = load_config()
 
 
 @bot.event
@@ -252,7 +251,8 @@ async def trackeradd(
 
     # Validate tracker by getting current status
     try:
-        statuses = await get_tracker_statuses()
+        loop = asyncio.get_event_loop()
+        statuses = await loop.run_in_executor(None, status_api.get_tracker_statuses)
         if tracker not in statuses:
             await interaction.followup.send(
                 f"Error: Could not get status for {TRACKER_NAMES[tracker]}",
@@ -276,8 +276,7 @@ async def trackeradd(
     config[guild_id]["trackers"][tracker] = {
         "channel_id": channel.id,
         "last_status": None,
-        "last_check": None,
-        "history": []  # Add history tracking
+        "last_check": None
     }
 
     save_config(config)
@@ -395,8 +394,9 @@ async def check_trackers() -> None:
     """Check the status of all trackers and send notifications for changes."""
     try:
         logger.info("Starting periodic tracker status check...")
-        # Get status for all trackers at once using our rate-limited function
-        all_statuses = await get_tracker_statuses()
+        # Get status for all trackers using the library's endpoint
+        loop = asyncio.get_event_loop()
+        all_statuses = await loop.run_in_executor(None, status_api.get_tracker_statuses)
         
         for guild_id, guild_data in config.items():
             if "trackers" not in guild_data:
@@ -409,8 +409,8 @@ async def check_trackers() -> None:
                         continue
 
                     status_info = all_statuses[tracker_name]
-                    status_code = int(status_info['status_code'])  # Ensure it's an int
-                    status_message = str(status_info['status_message'])  # Ensure it's a str
+                    status_code = int(status_info['status_code'])
+                    status_message = str(status_info['status_message'])
 
                     # Get the channel
                     guild = bot.get_guild(int(guild_id))
@@ -431,22 +431,26 @@ async def check_trackers() -> None:
                         status_code != tracker_data["last_status"]):
                         
                         emoji = STATUS_EMOJI.get(status_code, "❓")
-                        status_desc = STATUS_DESC.get(status_code, "Unknown status")
                         
                         # Log the status change
                         old_status = "None" if tracker_data["last_status"] is None else (
-                            STATUS_DESC.get(tracker_data["last_status"], "Unknown")
+                            "Online" if tracker_data["last_status"] == 1 else
+                            "Unstable" if tracker_data["last_status"] == 2 else
+                            "Offline"
                         )
+                        new_status = ("Online" if status_code == 1 else
+                                    "Unstable" if status_code == 2 else
+                                    "Offline")
                         logger.info(
                             f"Status change for {TRACKER_NAMES[tracker_name]} in {guild.name}: "
-                            f"{old_status} -> {status_desc}"
+                            f"{old_status} -> {new_status}"
                         )
                         
                         embed = discord.Embed(
                             title=f"Tracker Status Change",
                             description=(
                                 f"**Tracker:** {TRACKER_NAMES[tracker_name]}\n"
-                                f"**Status:** {emoji} {status_desc}\n"
+                                f"**Status:** {emoji} {new_status}\n"
                                 f"**Message:** {status_message}"
                             ),
                             color=discord.Color.green() if status_code == 1 else 
@@ -456,32 +460,10 @@ async def check_trackers() -> None:
                         )
                         await channel.send(embed=embed)
 
-                        # Update history
-                        now = datetime.now().isoformat()
-                        history_entry: StatusEntry = {
-                            "status_code": status_code,
-                            "status_message": status_message,
-                            "timestamp": now,
-                            "response_time": float(status_info.get('response_time', 0))
-                        }
-                        
-                        # Keep last 30 days of history
-                        thirty_days_ago = (
-                            datetime.now() - timedelta(days=30)
-                        ).isoformat()
-                        
-                        history = tracker_data.get("history", [])
-                        history = [
-                            entry for entry in history 
-                            if entry["timestamp"] > thirty_days_ago
-                        ]
-                        history.append(history_entry)
-                        
-                        # Update the last known status and history
+                        # Update the last known status
                         config[guild_id]["trackers"][tracker_name].update({
                             "last_status": status_code,
-                            "last_check": now,
-                            "history": history
+                            "last_check": datetime.now().isoformat()
                         })
                         save_config(config)
 
