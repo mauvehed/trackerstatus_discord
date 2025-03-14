@@ -109,16 +109,48 @@ GuildConfig = Dict[str, Dict[str, Dict[str, Any]]]
 
 def load_config() -> GuildConfig:
     """Load the configuration from file or return empty config."""
-    if os.path.exists(CONFIG_FILE):
-        with open(CONFIG_FILE, "r") as f:
-            return cast(GuildConfig, json.load(f))
-    return {}
+    try:
+        # Check if CONFIG_FILE is a directory
+        if os.path.isdir(CONFIG_FILE):
+            logger.warning(f"{CONFIG_FILE} is a directory, removing it...")
+            os.rmdir(CONFIG_FILE)
+        
+        # Create parent directory if it doesn't exist
+        os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+        
+        # Try to load existing config
+        if os.path.isfile(CONFIG_FILE):
+            with open(CONFIG_FILE, "r") as f:
+                return cast(GuildConfig, json.load(f))
+        
+        # Create new config if file doesn't exist
+        logger.info(f"Creating new config file at {CONFIG_FILE}")
+        empty_config: GuildConfig = {"guilds": {}}
+        save_config(empty_config)
+        return empty_config
+        
+    except Exception as e:
+        logger.error(f"Error loading config: {e}")
+        return {"guilds": {}}
 
 
 def save_config(config: GuildConfig) -> None:
     """Save the configuration to file."""
-    with open(CONFIG_FILE, "w") as f:
-        json.dump(config, f, indent=4)
+    try:
+        # Ensure parent directory exists
+        os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+        
+        # Write config with temporary file
+        temp_file = f"{CONFIG_FILE}.tmp"
+        with open(temp_file, "w") as f:
+            json.dump(config, f, indent=4)
+        
+        # Atomic replace
+        os.replace(temp_file, CONFIG_FILE)
+        
+    except Exception as e:
+        logger.error(f"Error saving config: {e}")
+        raise
 
 
 # Initialize configuration
