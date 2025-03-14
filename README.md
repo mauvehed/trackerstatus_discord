@@ -41,19 +41,25 @@ All commands require administrator permissions in the Discord server:
 
 ## Deployment Options
 
-### Option 1: Using Pre-built Docker Image (Recommended)
+### Using Pre-built Docker Image (Recommended)
 
 1. Create a new directory for the bot:
 ```bash
-mkdir trackerstatus_bot && cd trackerstatus_bot
+mkdir trackerstatus_bot
+cd trackerstatus_bot
 ```
 
 2. Create a `.env` file with your Discord bot token:
 ```bash
-echo "DISCORD_TOKEN=your_discord_bot_token_here" > .env
+echo "DISCORD_TOKEN=your_token_here" > .env
 ```
 
-3. Create a docker-compose.yml file:
+3. Create an empty config.json file:
+```bash
+echo '{"guilds": {}}' > config.json
+```
+
+4. Create a `docker-compose.yml` file:
 ```yaml
 version: '3.8'
 
@@ -68,7 +74,7 @@ services:
     restart: unless-stopped
 ```
 
-4. Start the bot:
+5. Start the bot:
 ```bash
 docker compose up -d
 ```
