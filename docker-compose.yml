@@ -3,12 +3,12 @@ version: '3.8'
 services:
   bot:
     image: ghcr.io/mauvehed/trackerstatus_discord:main
-    container_name: trackerstatus_bot
+    container_name: trackerstatus_discord
     volumes:
-      - config_data:/app/data
+      - trackerstatus_discord:/app/data
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
     restart: unless-stopped
 
 volumes:
-  config_data: 
+  trackerstatus_discord: 
