@@ -101,7 +101,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Configuration file path
-CONFIG_FILE = "config.json"
+CONFIG_FILE = "/app/config.json"
 
 # Type aliases
 GuildConfig = Dict[str, Dict[str, Dict[str, Any]]]
