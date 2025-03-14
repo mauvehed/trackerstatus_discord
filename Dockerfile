@@ -13,8 +13,10 @@ RUN apt-get update && \
 # Install Poetry
 RUN curl -sSL https://install.python-poetry.org | python3 -
 
-# Copy project files
-COPY pyproject.toml poetry.lock ./
+# Copy project metadata files first
+COPY pyproject.toml poetry.lock README.md ./
+
+# Copy source code
 COPY trackerstatus_discord/ ./trackerstatus_discord/
 COPY main.py ./
 
