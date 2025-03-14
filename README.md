@@ -54,12 +54,7 @@ cd trackerstatus_bot
 echo "DISCORD_TOKEN=your_token_here" > .env
 ```
 
-3. Create an empty config.json file:
-```bash
-echo '{"guilds": {}}' > config.json
-```
-
-4. Create a `docker-compose.yml` file:
+3. Create a `docker-compose.yml` file:
 ```yaml
 version: '3.8'
 
@@ -68,13 +63,16 @@ services:
     image: ghcr.io/mauvehed/trackerstatus_discord:main
     container_name: trackerstatus_bot
     volumes:
-      - ./config.json:/app/config.json
+      - config_data:/app/data
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
     restart: unless-stopped
+
+volumes:
+  config_data:
 ```
 
-5. Start the bot:
+4. Start the bot:
 ```bash
 docker compose up -d
 ```
@@ -110,14 +108,32 @@ git clone https://github.com/mauvehed/trackerstatus_discord.git
 cd trackerstatus_discord
 ```
 
-2. Build the Docker image:
+2. Create a `.env` file with your Discord bot token:
 ```bash
-docker build -t trackerstatus_discord .
+echo "DISCORD_TOKEN=your_token_here" > .env
 ```
 
-3. Run the container:
+3. Create a docker-compose.yml file:
+```yaml
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: trackerstatus_bot
+    volumes:
+      - config_data:/app/data
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+    restart: unless-stopped
+
+volumes:
+  config_data:
+```
+
+4. Build and start the container:
 ```bash
-docker run -e DISCORD_TOKEN=your_discord_bot_token_here -v $(pwd)/config.json:/app/config.json trackerstatus_discord
+docker compose up -d --build
 ```
 
 ## Docker Tags
@@ -133,12 +149,12 @@ You can use any of these tags in your docker-compose.yml file by replacing `main
 
 ## Configuration
 
-The bot stores its configuration in `config.json`, which includes:
+The bot stores its configuration in a JSON file, which includes:
 - Tracked trackers per Discord server
 - Notification channel settings
 - Last known status for each tracker
 
-When using Docker, the `config.json` file is persisted on the host machine and mounted into the container.
+When using Docker, the configuration is stored in a named volume for persistence across container restarts.
 
 ## Monitoring
 
