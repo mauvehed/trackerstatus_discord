@@ -5,7 +5,10 @@ services:
     image: ghcr.io/mauvehed/trackerstatus_discord:main
     container_name: trackerstatus_bot
     volumes:
-      - ./data:/app/data
+      - config_data:/app/data
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
-    restart: unless-stopped 
+    restart: unless-stopped
+
+volumes:
+  config_data: 
