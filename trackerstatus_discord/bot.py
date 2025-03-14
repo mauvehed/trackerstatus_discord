@@ -451,6 +451,178 @@ async def before_check_trackers() -> None:
     await bot.wait_until_ready()
 
 
+@bot.tree.command(name="trackerlatency", description="Get latency metrics for a tracker")
+@app_commands.describe(tracker="The tracker to get latency metrics for")
+@app_commands.choices(tracker=[
+    app_commands.Choice(name=f"{code} - {TRACKER_NAMES[code.lower()]}", value=code)
+    for code in TRACKER_NAMES.keys()
+])
+async def trackerlatency(interaction: discord.Interaction, tracker: str) -> None:
+    """Get latency metrics for a specific tracker."""
+    await interaction.response.defer(ephemeral=True)
+    
+    try:
+        tracker = tracker.lower()
+        if tracker not in TRACKER_NAMES:
+            await interaction.followup.send(
+                f"Invalid tracker: {tracker}. Use /trackeravailable to see available options.",
+                ephemeral=True,
+            )
+            return
+
+        # Get latency metrics
+        loop = asyncio.get_event_loop()
+        metrics = await loop.run_in_executor(None, status_api.get_latency_metrics, tracker)
+        
+        embed = discord.Embed(
+            title=f"Latency Metrics for {TRACKER_NAMES[tracker]}",
+            color=discord.Color.blue(),
+            timestamp=datetime.now()
+        )
+        
+        embed.add_field(
+            name="Current Latency",
+            value=f"{metrics['current_latency']:.2f}ms",
+            inline=True
+        )
+        embed.add_field(
+            name="Average Latency (24h)",
+            value=f"{metrics['average_latency_24h']:.2f}ms",
+            inline=True
+        )
+        embed.add_field(
+            name="Peak Latency (24h)",
+            value=f"{metrics['peak_latency_24h']:.2f}ms",
+            inline=True
+        )
+        
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        
+    except Exception as e:
+        logger.error(f"Error getting latency metrics for {tracker}: {e}")
+        await interaction.followup.send(
+            f"Error getting latency metrics for {TRACKER_NAMES[tracker]}: {str(e)}",
+            ephemeral=True
+        )
+
+@bot.tree.command(name="trackeruptime", description="Get uptime statistics for a tracker")
+@app_commands.describe(tracker="The tracker to get uptime statistics for")
+@app_commands.choices(tracker=[
+    app_commands.Choice(name=f"{code} - {TRACKER_NAMES[code.lower()]}", value=code)
+    for code in TRACKER_NAMES.keys()
+])
+async def trackeruptime(interaction: discord.Interaction, tracker: str) -> None:
+    """Get uptime statistics for a specific tracker."""
+    await interaction.response.defer(ephemeral=True)
+    
+    try:
+        tracker = tracker.lower()
+        if tracker not in TRACKER_NAMES:
+            await interaction.followup.send(
+                f"Invalid tracker: {tracker}. Use /trackeravailable to see available options.",
+                ephemeral=True,
+            )
+            return
+
+        # Get uptime statistics
+        loop = asyncio.get_event_loop()
+        stats = await loop.run_in_executor(None, status_api.get_uptime_stats, tracker)
+        
+        embed = discord.Embed(
+            title=f"Uptime Statistics for {TRACKER_NAMES[tracker]}",
+            color=discord.Color.blue(),
+            timestamp=datetime.now()
+        )
+        
+        embed.add_field(
+            name="Current Status",
+            value=f"{STATUS_EMOJI.get(stats['current_status'], '❓')} {STATUS_DESC.get(stats['current_status'], 'Unknown')}",
+            inline=False
+        )
+        embed.add_field(
+            name="Uptime (24h)",
+            value=f"{stats['uptime_24h']:.2f}%",
+            inline=True
+        )
+        embed.add_field(
+            name="Uptime (7d)",
+            value=f"{stats['uptime_7d']:.2f}%",
+            inline=True
+        )
+        embed.add_field(
+            name="Uptime (30d)",
+            value=f"{stats['uptime_30d']:.2f}%",
+            inline=True
+        )
+        
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        
+    except Exception as e:
+        logger.error(f"Error getting uptime statistics for {tracker}: {e}")
+        await interaction.followup.send(
+            f"Error getting uptime statistics for {TRACKER_NAMES[tracker]}: {str(e)}",
+            ephemeral=True
+        )
+
+@bot.tree.command(name="trackerrecord", description="Get record uptimes for a tracker")
+@app_commands.describe(tracker="The tracker to get record uptimes for")
+@app_commands.choices(tracker=[
+    app_commands.Choice(name=f"{code} - {TRACKER_NAMES[code.lower()]}", value=code)
+    for code in TRACKER_NAMES.keys()
+])
+async def trackerrecord(interaction: discord.Interaction, tracker: str) -> None:
+    """Get record uptimes for a specific tracker."""
+    await interaction.response.defer(ephemeral=True)
+    
+    try:
+        tracker = tracker.lower()
+        if tracker not in TRACKER_NAMES:
+            await interaction.followup.send(
+                f"Invalid tracker: {tracker}. Use /trackeravailable to see available options.",
+                ephemeral=True,
+            )
+            return
+
+        # Get record uptimes
+        loop = asyncio.get_event_loop()
+        records = await loop.run_in_executor(None, status_api.get_record_uptimes, tracker)
+        
+        embed = discord.Embed(
+            title=f"Record Uptimes for {TRACKER_NAMES[tracker]}",
+            color=discord.Color.blue(),
+            timestamp=datetime.now()
+        )
+        
+        embed.add_field(
+            name="Longest Uptime",
+            value=f"{records['longest_uptime_hours']:.1f} hours\nFrom: {records['longest_uptime_start']}\nTo: {records['longest_uptime_end']}",
+            inline=False
+        )
+        embed.add_field(
+            name="Longest Downtime",
+            value=f"{records['longest_downtime_hours']:.1f} hours\nFrom: {records['longest_downtime_start']}\nTo: {records['longest_downtime_end']}",
+            inline=False
+        )
+        embed.add_field(
+            name="Best Monthly Uptime",
+            value=f"{records['best_monthly_uptime']:.2f}%\nMonth: {records['best_monthly_uptime_date']}",
+            inline=True
+        )
+        embed.add_field(
+            name="Worst Monthly Uptime",
+            value=f"{records['worst_monthly_uptime']:.2f}%\nMonth: {records['worst_monthly_uptime_date']}",
+            inline=True
+        )
+        
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        
+    except Exception as e:
+        logger.error(f"Error getting record uptimes for {tracker}: {e}")
+        await interaction.followup.send(
+            f"Error getting record uptimes for {TRACKER_NAMES[tracker]}: {str(e)}",
+            ephemeral=True
+        )
+
 def run() -> None:
     """Run the Discord bot."""
     token = os.getenv("DISCORD_TOKEN")
