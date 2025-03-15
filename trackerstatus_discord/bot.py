@@ -157,6 +157,7 @@ config: GuildConfigType = load_config()
 @bot.event
 async def on_ready() -> None:
     """Handle bot ready event."""
+    logger.info(f"Using trackerstatus library v{status_api.__version__}")
     logger.info(f"TrackerStatus Discord Bot v{VERSION} starting up...")
     print(f"{bot.user} has connected to Discord!")
     print("Attempting to sync commands...")
