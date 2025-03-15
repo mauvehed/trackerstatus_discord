@@ -36,10 +36,24 @@ Note: Notifications are only sent when a tracker transitions between Online and 
 
 All commands require administrator permissions in the Discord server:
 
+### Administrative Commands
 - `/trackeravailable` - Lists all available trackers that can be monitored
 - `/trackeradd <tracker> <channel>` - Start monitoring a tracker and send notifications to the specified channel
 - `/trackerremove <tracker> <channel>` - Stop monitoring a tracker in the specified channel
 - `/trackerlist` - Show all currently monitored trackers and their notification channels
+- `/trackerversion` - Display the current version of both the bot and the trackerstatus library
+
+### Status Commands
+- `/trackerlatency <tracker>` - Get current latency metrics for each service of the specified tracker
+- `/trackeruptime <tracker>` - Get current uptime statistics for each service of the specified tracker
+- `/trackerrecord <tracker>` - Get record uptime durations for each service of the specified tracker
+
+Each status command shows:
+- Current tracker status (Online/Unstable/Offline)
+- Individual service statuses
+- Command-specific metrics (latency, uptime, or record duration)
+
+Note: All command responses are ephemeral (only visible to the user who ran the command) to reduce channel clutter.
 
 ## Deployment Options
 
