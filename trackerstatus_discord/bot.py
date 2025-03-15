@@ -1,7 +1,6 @@
 import json
 import os
-import time
-from typing import Dict, Optional, Union, cast, TypedDict
+from typing import Dict, Optional, cast, TypedDict
 from datetime import datetime
 import asyncio
 import logging
@@ -51,10 +50,6 @@ TRACKER_ENDPOINTS = {
     "red": REDEndpoint(api_client),
 }
 
-# Track last API call time for rate limiting
-last_api_call: float = 0.0
-api_lock = asyncio.Lock()
-
 # Status codes
 ONLINE = 1
 UNSTABLE = 2
@@ -62,16 +57,16 @@ OFFLINE = 0
 
 # Status emoji mapping
 STATUS_EMOJI = {
-    ONLINE: "🟢",    # Online
-    UNSTABLE: "🟡",  # Unstable
-    OFFLINE: "🔴",   # Offline
+    TrackerStatus.ONLINE: "🟢",    # Online
+    TrackerStatus.UNSTABLE: "🟡",  # Unstable
+    TrackerStatus.OFFLINE: "🔴",   # Offline
 }
 
 # Status descriptions
 STATUS_DESC = {
-    ONLINE: "ONLINE - perfect response over the past 3 minutes",
-    UNSTABLE: "UNSTABLE - intermittent responses over the past 3 minutes",
-    OFFLINE: "OFFLINE - no response over the past 3 minutes",
+    TrackerStatus.ONLINE: "ONLINE - perfect response over the past 3 minutes",
+    TrackerStatus.UNSTABLE: "UNSTABLE - intermittent responses over the past 3 minutes",
+    TrackerStatus.OFFLINE: "OFFLINE - no response over the past 3 minutes",
 }
 
 # Tracker name mapping (API name to display name)
@@ -371,8 +366,8 @@ async def trackerlist(interaction: discord.Interaction) -> None:
 async def check_trackers() -> None:
     """Check the status of all trackers and send notifications for changes.
     
-    Only sends notifications for transitions between Online (1) and Offline (0) states.
-    Unstable (2) state changes are tracked but do not trigger notifications.
+    Only sends notifications for transitions between Online and Offline states.
+    Unstable state changes are tracked but do not trigger notifications.
     """
     try:
         logger.info("Starting periodic tracker status check...")
@@ -391,7 +386,7 @@ async def check_trackers() -> None:
                         continue
 
                     status_info = all_statuses[tracker_name]
-                    status_code = int(status_info['status_code'])
+                    status_code = TrackerStatus(int(status_info['status_code']))
                     status_message = str(status_info['status_message'])
 
                     # Get the channel
@@ -408,16 +403,18 @@ async def check_trackers() -> None:
                         )
                         continue
 
-                    # Only send alerts for changes between Online (1) and Offline (0)
-                    # First check: skip if both old and new status are Unstable (2)
-                    if status_code == UNSTABLE and tracker_data["last_status"] == UNSTABLE:
+                    # Only send alerts for changes between Online and Offline
+                    # First check: skip if both old and new status are Unstable
+                    if (status_code == TrackerStatus.UNSTABLE and 
+                        tracker_data["last_status"] == TrackerStatus.UNSTABLE.value):
                         continue
                         
                     # Second check: skip if transitioning to/from Unstable
-                    if (status_code == UNSTABLE or tracker_data["last_status"] == UNSTABLE):
+                    if (status_code == TrackerStatus.UNSTABLE or 
+                        tracker_data["last_status"] == TrackerStatus.UNSTABLE.value):
                         # Just update the status without sending a notification
                         config[guild_id]["trackers"][tracker_name].update({
-                            "last_status": status_code,
+                            "last_status": status_code.value,
                             "last_check": datetime.now().isoformat()
                         })
                         save_config(config)
@@ -425,16 +422,16 @@ async def check_trackers() -> None:
 
                     # If this is the first check or status has changed between Online/Offline
                     if (tracker_data["last_status"] is None or 
-                        status_code != tracker_data["last_status"]):
+                        status_code.value != tracker_data["last_status"]):
                         
                         emoji = STATUS_EMOJI.get(status_code, "❓")
                         
                         # Log the status change
                         old_status = "None" if tracker_data["last_status"] is None else (
-                            "Online" if tracker_data["last_status"] == ONLINE else
+                            "Online" if tracker_data["last_status"] == TrackerStatus.ONLINE.value else
                             "Offline"
                         )
-                        new_status = "Online" if status_code == ONLINE else "Offline"
+                        new_status = "Online" if status_code == TrackerStatus.ONLINE else "Offline"
                         
                         logger.info(
                             f"Status change for {TRACKER_NAMES[tracker_name]} in {guild.name}: "
@@ -448,7 +445,7 @@ async def check_trackers() -> None:
                                 f"**Status:** {emoji} {new_status}\n"
                                 f"**Message:** {status_message}"
                             ),
-                            color=discord.Color.green() if status_code == ONLINE else 
+                            color=discord.Color.green() if status_code == TrackerStatus.ONLINE else 
                                   discord.Color.red(),
                             timestamp=datetime.now()
                         )
@@ -456,7 +453,7 @@ async def check_trackers() -> None:
 
                         # Update the last known status
                         config[guild_id]["trackers"][tracker_name].update({
-                            "last_status": status_code,
+                            "last_status": status_code.value,
                             "last_check": datetime.now().isoformat()
                         })
                         save_config(config)
@@ -508,7 +505,7 @@ async def trackerlatency(interaction: discord.Interaction, tracker: str) -> None
         # Get all tracker info including status and services
         tracker_info = await loop.run_in_executor(None, endpoint.get_all)
         status = tracker_info.get('status', {})
-        current_status = int(status.get('status_code', 0))
+        current_status = TrackerStatus(int(status.get('status_code', 0)))
         
         # Create embed
         embed = discord.Embed(
@@ -577,7 +574,7 @@ async def trackeruptime(interaction: discord.Interaction, tracker: str) -> None:
         # Get all tracker info including status and uptime
         tracker_info = await loop.run_in_executor(None, endpoint.get_all)
         status = tracker_info.get('status', {})
-        current_status = int(status.get('status_code', 0))
+        current_status = TrackerStatus(int(status.get('status_code', 0)))
         
         # Create embed
         embed = discord.Embed(
@@ -645,7 +642,7 @@ async def trackerrecord(interaction: discord.Interaction, tracker: str) -> None:
         # Get all tracker info including status and services
         tracker_info = await loop.run_in_executor(None, endpoint.get_all)
         status = tracker_info.get('status', {})
-        current_status = int(status.get('status_code', 0))
+        current_status = TrackerStatus(int(status.get('status_code', 0)))
         
         # Create embed
         embed = discord.Embed(
