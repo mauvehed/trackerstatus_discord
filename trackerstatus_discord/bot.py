@@ -42,7 +42,7 @@ load_dotenv()
 api_client = APIClient()
 status_api = StatusEndpoint(api_client)
 
-# Initialize individual tracker endpoints
+# Initialize individual tracker endpoints for detailed information
 TRACKER_ENDPOINTS = {
     "ant": ANTEndpoint(api_client),
     "ar": AREndpoint(api_client),
@@ -54,19 +54,14 @@ TRACKER_ENDPOINTS = {
     "red": REDEndpoint(api_client),
 }
 
-# Status codes
-ONLINE = 1
-UNSTABLE = 2
-OFFLINE = 0
-
-# Status emoji mapping
+# Status emoji mapping using TrackerStatus enum
 STATUS_EMOJI = {
-    TrackerStatus.ONLINE: "🟢",    # Online
-    TrackerStatus.UNSTABLE: "🟡",  # Unstable
-    TrackerStatus.OFFLINE: "🔴",   # Offline
+    TrackerStatus.ONLINE: "🟢",    # Perfect response over past 3 minutes
+    TrackerStatus.UNSTABLE: "🟡",  # Intermittent responses over past 3 minutes
+    TrackerStatus.OFFLINE: "🔴",   # No response over past 3 minutes
 }
 
-# Status descriptions
+# Status descriptions using TrackerStatus enum
 STATUS_DESC = {
     TrackerStatus.ONLINE: "ONLINE - perfect response over the past 3 minutes",
     TrackerStatus.UNSTABLE: "UNSTABLE - intermittent responses over the past 3 minutes",
@@ -85,12 +80,12 @@ TRACKER_NAMES = {
     "red": "Redacted",
 }
 
-# Initialize bot with intents
+# Initialize bot with required intents
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Configuration file path
+# Configuration file path for persistent storage
 CONFIG_DIR = "/app/data"
 CONFIG_FILE = os.path.join(CONFIG_DIR, "config.json")
 
@@ -99,9 +94,9 @@ class TrackerConfig(TypedDict):
     """Configuration for a tracked tracker in a guild channel.
     
     Attributes:
-        channel_id: The Discord channel ID where notifications are sent
-        last_status: The last known status code (1=Online, 2=Unstable, 0=Offline)
-        last_check: ISO format timestamp of the last status check
+        channel_id (int): The Discord channel ID where notifications are sent
+        last_status (Optional[int]): The last known status code using TrackerStatus enum values
+        last_check (Optional[str]): ISO format timestamp of the last status check
     """
     channel_id: int
     last_status: Optional[int]
@@ -111,7 +106,27 @@ GuildTrackers = Dict[str, TrackerConfig]
 GuildConfigType = Dict[str, Dict[str, GuildTrackers]]
 
 def load_config() -> GuildConfigType:
-    """Load the configuration from file or return empty config."""
+    """Load the configuration from file or create a new empty config.
+    
+    Returns:
+        GuildConfigType: The loaded configuration or an empty configuration if the file
+        doesn't exist or there's an error loading it.
+    
+    The configuration structure is:
+    {
+        "guilds": {
+            "guild_id": {
+                "trackers": {
+                    "tracker_name": {
+                        "channel_id": 123456789,
+                        "last_status": 1,
+                        "last_check": "2024-03-21T10:00:00"
+                    }
+                }
+            }
+        }
+    }
+    """
     try:
         # Create config directory if it doesn't exist
         os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -133,7 +148,17 @@ def load_config() -> GuildConfigType:
 
 
 def save_config(config: GuildConfigType) -> None:
-    """Save the configuration to file."""
+    """Save the configuration to file atomically.
+    
+    Args:
+        config (GuildConfigType): The configuration to save
+    
+    Raises:
+        Exception: If there's an error creating the directory or saving the file
+    
+    The save is performed atomically by writing to a temporary file first
+    and then replacing the original file.
+    """
     try:
         # Ensure config directory exists
         os.makedirs(CONFIG_DIR, exist_ok=True)
@@ -157,8 +182,12 @@ config: GuildConfigType = load_config()
 
 @bot.event
 async def on_ready() -> None:
-    """Handle bot ready event."""
-    logger.info(f"Using trackerstatus library v{status_api.__version__}")
+    """Handle bot ready event.
+    
+    Logs the bot startup, including versions of both the bot and trackerstatus library.
+    Syncs slash commands with Discord and starts the tracker check loop.
+    """
+    logger.info(f"Using trackerstatus library v{trackerstatus_version}")
     logger.info(f"TrackerStatus Discord Bot v{VERSION} starting up...")
     print(f"{bot.user} has connected to Discord!")
     print("Attempting to sync commands...")
@@ -174,9 +203,43 @@ async def on_ready() -> None:
         print("Full error details:", e.__class__.__name__)
 
 
+@bot.tree.command(name="trackerversion", description="Show bot and library versions")
+async def trackerversion(interaction: discord.Interaction) -> None:
+    """Display the current version of the bot and the trackerstatus library.
+    
+    Shows:
+    - Bot version number
+    - TrackerStatus library version number
+    """
+    embed = discord.Embed(
+        title="TrackerStatus Bot Version Information",
+        color=discord.Color.blue(),
+        timestamp=datetime.now()
+    )
+    
+    embed.add_field(
+        name="Bot Version",
+        value=f"v{VERSION}",
+        inline=True
+    )
+    
+    embed.add_field(
+        name="TrackerStatus Library",
+        value=f"v{trackerstatus_version}",
+        inline=True
+    )
+    
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
 @bot.tree.command(name="trackeravailable", description="List all available trackers that can be monitored")
 async def trackeravailable(interaction: discord.Interaction) -> None:
-    """List all available trackers that can be monitored."""
+    """List all available trackers that can be monitored.
+    
+    Shows:
+    - Tracker code (used in commands)
+    - Full tracker name
+    """
     embed = discord.Embed(
         title="Available Trackers",
         description="Here are all the trackers that can be monitored:",
@@ -189,10 +252,10 @@ async def trackeravailable(interaction: discord.Interaction) -> None:
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
-@bot.tree.command(name="trackeradd", description="Add a tracker to monitor")
+@bot.tree.command(name="trackeradd", description="Add a tracker to monitor in a specific channel")
 @app_commands.describe(
-    tracker="The tracker to monitor",
-    channel="The channel to send alerts to"
+    tracker="The tracker to monitor (use /trackeravailable to see options)",
+    channel="The channel where status notifications will be sent"
 )
 @app_commands.choices(tracker=[
     app_commands.Choice(name=f"{code} - {TRACKER_NAMES[code.lower()]}", value=code)
@@ -203,7 +266,19 @@ async def trackeradd(
     tracker: str,
     channel: discord.TextChannel,
 ) -> None:
-    """Add a tracker to monitor with notifications in the specified channel."""
+    """Add a tracker to monitor with notifications in the specified channel.
+    
+    Args:
+        interaction: The Discord interaction context
+        tracker: The tracker code to monitor (e.g., 'btn', 'red')
+        channel: The Discord channel where notifications will be sent
+    
+    Requirements:
+    - Must be used in a server (guild)
+    - User must have administrator permissions
+    - Tracker must be valid and available
+    - Channel must be accessible by the bot
+    """
     # Defer the response since we might need to wait for rate limiting
     await interaction.response.defer(ephemeral=True)
     
@@ -372,8 +447,18 @@ async def trackerlist(interaction: discord.Interaction) -> None:
 async def check_trackers() -> None:
     """Check the status of all trackers and send notifications for changes.
     
-    Only sends notifications for transitions between Online and Offline states.
-    Unstable state changes are tracked but do not trigger notifications.
+    This task runs every 5 minutes and:
+    1. Fetches current status for all trackers
+    2. For each configured tracker in each guild:
+       - Checks if status has changed
+       - Updates stored status
+       - Sends notifications for Online/Offline transitions
+    
+    Notification Behavior:
+    - Only sends notifications for transitions between Online and Offline states
+    - Tracks but does not notify for Unstable state changes
+    - Includes current status and status message in notifications
+    - Uses color coding (green for Online, red for Offline)
     """
     try:
         logger.info("Starting periodic tracker status check...")
@@ -479,19 +564,23 @@ async def before_check_trackers() -> None:
     await bot.wait_until_ready()
 
 
-@bot.tree.command(name="trackerlatency", description="Get latency metrics for a tracker")
+@bot.tree.command(name="trackerlatency", description="Get current latency metrics for a tracker")
 @app_commands.describe(tracker="The tracker to get latency metrics for")
 @app_commands.choices(tracker=[
     app_commands.Choice(name=f"{code} - {TRACKER_NAMES[code.lower()]}", value=code)
     for code in TRACKER_NAMES.keys()
 ])
 async def trackerlatency(interaction: discord.Interaction, tracker: str) -> None:
-    """Get latency metrics for a specific tracker.
+    """Get current latency metrics for a specific tracker.
     
-    Retrieves current status and latency information for all services of the tracker.
-    Displays:
+    Args:
+        interaction: The Discord interaction context
+        tracker: The tracker code to check (e.g., 'btn', 'red')
+    
+    Shows:
     - Current tracker status (Online/Unstable/Offline)
-    - Status and latency for each service
+    - Status of each service (Online/Offline)
+    - Current latency in milliseconds for each service
     """
     await interaction.response.defer(ephemeral=True)
     
@@ -548,19 +637,22 @@ async def trackerlatency(interaction: discord.Interaction, tracker: str) -> None
             ephemeral=True
         )
 
-@bot.tree.command(name="trackeruptime", description="Get uptime statistics for a tracker")
+@bot.tree.command(name="trackeruptime", description="Get current uptime statistics for a tracker")
 @app_commands.describe(tracker="The tracker to get uptime statistics for")
 @app_commands.choices(tracker=[
     app_commands.Choice(name=f"{code} - {TRACKER_NAMES[code.lower()]}", value=code)
     for code in TRACKER_NAMES.keys()
 ])
 async def trackeruptime(interaction: discord.Interaction, tracker: str) -> None:
-    """Get uptime statistics for a specific tracker.
+    """Get current uptime statistics for a specific tracker.
     
-    Retrieves current status and uptime information for all services of the tracker.
-    Displays:
+    Args:
+        interaction: The Discord interaction context
+        tracker: The tracker code to check (e.g., 'btn', 'red')
+    
+    Shows:
     - Current tracker status (Online/Unstable/Offline)
-    - Status for each service
+    - Status of each service (Online/Offline)
     """
     await interaction.response.defer(ephemeral=True)
     
@@ -625,10 +717,14 @@ async def trackeruptime(interaction: discord.Interaction, tracker: str) -> None:
 async def trackerrecord(interaction: discord.Interaction, tracker: str) -> None:
     """Get record uptimes for a specific tracker.
     
-    Retrieves current status and uptime records for all services of the tracker.
-    Displays:
+    Args:
+        interaction: The Discord interaction context
+        tracker: The tracker code to check (e.g., 'btn', 'red')
+    
+    Shows:
     - Current tracker status (Online/Unstable/Offline)
-    - Status and uptime duration for each service
+    - Status of each service (Online/Offline)
+    - Record uptime duration in minutes for each service
     """
     await interaction.response.defer(ephemeral=True)
     
@@ -685,31 +781,15 @@ async def trackerrecord(interaction: discord.Interaction, tracker: str) -> None:
             ephemeral=True
         )
 
-@bot.tree.command(name="trackerversion", description="Show bot and library versions")
-async def trackerversion(interaction: discord.Interaction) -> None:
-    """Display the current version of the bot and the trackerstatus library."""
-    embed = discord.Embed(
-        title="TrackerStatus Bot Version Information",
-        color=discord.Color.blue(),
-        timestamp=datetime.now()
-    )
-    
-    embed.add_field(
-        name="Bot Version",
-        value=f"v{VERSION}",
-        inline=True
-    )
-    
-    embed.add_field(
-        name="TrackerStatus Library",
-        value=f"v{trackerstatus_version}",
-        inline=True
-    )
-    
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
 def run() -> None:
-    """Run the Discord bot."""
+    """Run the Discord bot.
+    
+    Requires:
+    - DISCORD_TOKEN environment variable to be set
+    
+    Raises:
+        ValueError: If DISCORD_TOKEN is not set
+    """
     token = os.getenv("DISCORD_TOKEN")
     if not token:
         raise ValueError("DISCORD_TOKEN environment variable is not set")
