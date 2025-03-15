@@ -5,7 +5,7 @@ A Discord bot that monitors the status of various private trackers and sends not
 ## Features
 
 - Monitor multiple trackers simultaneously
-- Real-time status change notifications
+- Status change notifications for Online/Offline transitions
 - Rate-limited API calls to prevent overloading
 - Customizable notification channels per tracker
 - Admin-only commands for security
@@ -24,11 +24,13 @@ A Discord bot that monitors the status of various private trackers and sends not
 
 ## Status Types
 
-The bot reports three different status types:
+The bot tracks three different status types:
 
 - 🟢 **ONLINE** - Perfect response over the past 3 minutes
-- 🟡 **UNSTABLE** - Intermittent responses over the past 3 minutes
+- 🟡 **UNSTABLE** - Intermittent responses over the past 3 minutes (no notifications sent)
 - 🔴 **OFFLINE** - No response over the past 3 minutes
+
+Note: Notifications are only sent when a tracker transitions between Online and Offline states. Unstable states are tracked but do not trigger notifications to reduce alert fatigue.
 
 ## Commands
 
@@ -95,6 +97,8 @@ poetry install
 DISCORD_TOKEN=your_discord_bot_token_here
 ```
 
+Note: The repository includes a `.gitignore` file that prevents committing sensitive files like `.env` and `.envrc`.
+
 4. Run the bot:
 ```bash
 poetry run python main.py
@@ -156,15 +160,25 @@ The bot stores its configuration in a JSON file, which includes:
 
 When using Docker, the configuration is stored in a named volume for persistence across container restarts.
 
+### Ignored Files
+
+The following files are ignored by git for security and cleanliness:
+- `.env` and `.envrc` files containing sensitive data
+- Python virtual environments and cache files
+- Build and distribution directories
+- IDE-specific files
+- Log files and Docker volumes
+- Operating system files (e.g., .DS_Store)
+
 ## Monitoring
 
 The bot includes detailed logging for monitoring its operation:
 - Tracker additions and removals (with user and channel information)
-- Status changes for all trackers
+- Status changes between Online and Offline states
 - Periodic status check results
 - Error conditions and warnings
 
-Status checks occur every 5 minutes, and notifications are only sent when a tracker's status changes.
+Status checks occur every 5 minutes, and notifications are only sent when a tracker transitions between Online and Offline states to reduce notification noise.
 
 ## Rate Limiting
 

@@ -1,9 +1,9 @@
 import json
 import os
-from typing import Any, Dict, Optional, cast, Literal, Union, TypedDict
-from datetime import datetime, timedelta
-import asyncio
 import time
+from typing import Dict, Optional, Union, cast, TypedDict
+from datetime import datetime
+import asyncio
 import logging
 
 import discord
@@ -51,46 +51,27 @@ TRACKER_ENDPOINTS = {
     "red": REDEndpoint(api_client),
 }
 
-# Track last API call time
+# Track last API call time for rate limiting
 last_api_call: float = 0.0
 api_lock = asyncio.Lock()
 
-async def get_tracker_statuses() -> Dict[str, Dict[str, Union[int, str]]]:
-    """Get tracker statuses with proper rate limiting.
-    
-    Returns a dictionary mapping tracker names to their status info.
-    Each status info contains:
-    - status_code: int (0=Online, 1=Unstable, 2=Offline)
-    - status_message: str
-    """
-    global last_api_call
-    
-    async with api_lock:
-        now = time.time()
-        if last_api_call > 0:
-            # Wait for rate limit if needed
-            elapsed = now - last_api_call
-            if elapsed < 60:
-                await asyncio.sleep(60 - elapsed)
-        
-        # Make the API call in a background thread
-        loop = asyncio.get_event_loop()
-        statuses = await loop.run_in_executor(None, status_api.get_tracker_statuses)
-        last_api_call = time.time()
-        return cast(Dict[str, Dict[str, Union[int, str]]], statuses)
+# Status codes
+ONLINE = 1
+UNSTABLE = 2
+OFFLINE = 0
 
-# Status emoji mapping (1=Online, 2=Unstable, 0=Offline)
+# Status emoji mapping
 STATUS_EMOJI = {
-    1: "🟢",  # Online
-    2: "🟡",  # Unstable
-    0: "🔴",  # Offline
+    ONLINE: "🟢",    # Online
+    UNSTABLE: "🟡",  # Unstable
+    OFFLINE: "🔴",   # Offline
 }
 
-# Status descriptions (1=Online, 2=Unstable, 0=Offline)
+# Status descriptions
 STATUS_DESC = {
-    1: "ONLINE - perfect response over the past 3 minutes",
-    2: "UNSTABLE - intermittent responses over the past 3 minutes",
-    0: "OFFLINE - no response over the past 3 minutes",
+    ONLINE: "ONLINE - perfect response over the past 3 minutes",
+    UNSTABLE: "UNSTABLE - intermittent responses over the past 3 minutes",
+    OFFLINE: "OFFLINE - no response over the past 3 minutes",
 }
 
 # Tracker name mapping (API name to display name)
@@ -104,8 +85,6 @@ TRACKER_NAMES = {
     "ptp": "PassThePopcorn",
     "red": "Redacted",
 }
-
-TrackerChoice = Literal["ANT", "AR", "BTN", "GGN", "NBL", "OPS", "PTP", "RED"]
 
 # Initialize bot with intents
 intents = discord.Intents.default()
@@ -431,11 +410,11 @@ async def check_trackers() -> None:
 
                     # Only send alerts for changes between Online (1) and Offline (0)
                     # First check: skip if both old and new status are Unstable (2)
-                    if status_code == 2 and tracker_data["last_status"] == 2:
+                    if status_code == UNSTABLE and tracker_data["last_status"] == UNSTABLE:
                         continue
                         
                     # Second check: skip if transitioning to/from Unstable
-                    if (status_code == 2 or tracker_data["last_status"] == 2):
+                    if (status_code == UNSTABLE or tracker_data["last_status"] == UNSTABLE):
                         # Just update the status without sending a notification
                         config[guild_id]["trackers"][tracker_name].update({
                             "last_status": status_code,
@@ -452,10 +431,10 @@ async def check_trackers() -> None:
                         
                         # Log the status change
                         old_status = "None" if tracker_data["last_status"] is None else (
-                            "Online" if tracker_data["last_status"] == 1 else
+                            "Online" if tracker_data["last_status"] == ONLINE else
                             "Offline"
                         )
-                        new_status = "Online" if status_code == 1 else "Offline"
+                        new_status = "Online" if status_code == ONLINE else "Offline"
                         
                         logger.info(
                             f"Status change for {TRACKER_NAMES[tracker_name]} in {guild.name}: "
@@ -469,7 +448,7 @@ async def check_trackers() -> None:
                                 f"**Status:** {emoji} {new_status}\n"
                                 f"**Message:** {status_message}"
                             ),
-                            color=discord.Color.green() if status_code == 1 else 
+                            color=discord.Color.green() if status_code == ONLINE else 
                                   discord.Color.red(),
                             timestamp=datetime.now()
                         )
