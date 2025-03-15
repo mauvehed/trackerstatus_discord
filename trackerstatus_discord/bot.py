@@ -781,6 +781,107 @@ async def trackerrecord(interaction: discord.Interaction, tracker: str) -> None:
             ephemeral=True
         )
 
+@bot.tree.command(name="trackerupdate", description="Force an immediate status check of all configured trackers")
+async def trackerupdate(interaction: discord.Interaction) -> None:
+    """Force an immediate status check and update for all configured trackers.
+    
+    This command will:
+    1. Check all configured trackers immediately
+    2. Post current status to their configured channels
+    3. Update the last known status
+    
+    Requirements:
+    - Must be used in a server (guild)
+    - User must have administrator permissions
+    """
+    # Check if user has admin permissions
+    if not interaction.user or not isinstance(interaction.user, discord.Member):
+        await interaction.response.send_message(
+            "This command can only be used in a server!", ephemeral=True
+        )
+        return
+
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message(
+            "You need administrator permissions to use this command!", ephemeral=True
+        )
+        return
+        
+    await interaction.response.defer(ephemeral=True)
+    
+    try:
+        guild_id = str(interaction.guild_id)
+        if (guild_id not in config or 
+            "trackers" not in config[guild_id] or 
+            not config[guild_id]["trackers"]):
+            await interaction.followup.send(
+                "No trackers configured for this server.", ephemeral=True
+            )
+            return
+            
+        # Get status for all trackers
+        loop = asyncio.get_event_loop()
+        all_statuses = await loop.run_in_executor(None, status_api.get_tracker_statuses)
+        
+        update_count = 0
+        for tracker_name, tracker_data in config[guild_id]["trackers"].items():
+            try:
+                if tracker_name not in all_statuses:
+                    logger.warning(f"Unknown tracker {tracker_name}, skipping")
+                    continue
+
+                status_info = all_statuses[tracker_name]
+                status_code = TrackerStatus(int(status_info['status_code']))
+                status_message = str(status_info['status_message'])
+
+                # Get the channel
+                channel = interaction.guild.get_channel(tracker_data["channel_id"])
+                if not channel or not isinstance(channel, discord.TextChannel):
+                    logger.warning(
+                        f"Could not find channel {tracker_data['channel_id']} "
+                        f"in guild {interaction.guild.name}"
+                    )
+                    continue
+
+                emoji = STATUS_EMOJI.get(status_code, "❓")
+                status_text = "Online" if status_code == TrackerStatus.ONLINE else (
+                    "Unstable" if status_code == TrackerStatus.UNSTABLE else "Offline"
+                )
+                
+                embed = discord.Embed(
+                    title=f"Tracker Status Update",
+                    description=(
+                        f"**Tracker:** {TRACKER_NAMES[tracker_name]}\n"
+                        f"**Status:** {emoji} {status_text}\n"
+                        f"**Message:** {status_message}"
+                    ),
+                    color=discord.Color.blue(),
+                    timestamp=datetime.now()
+                )
+                await channel.send(embed=embed)
+                
+                # Update the last known status
+                config[guild_id]["trackers"][tracker_name].update({
+                    "last_status": status_code.value,
+                    "last_check": datetime.now().isoformat()
+                })
+                update_count += 1
+                
+            except Exception as e:
+                logger.error(f"Error updating tracker {tracker_name}: {e}")
+                continue
+        
+        save_config(config)
+        await interaction.followup.send(
+            f"Successfully updated status for {update_count} tracker(s).", ephemeral=True
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in force update command: {e}")
+        await interaction.followup.send(
+            f"Error performing force update: {str(e)}", ephemeral=True
+        )
+
 def run() -> None:
     """Run the Discord bot.
     

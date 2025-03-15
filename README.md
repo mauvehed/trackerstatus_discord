@@ -38,10 +38,11 @@ All commands require administrator permissions in the Discord server:
 
 ### Administrative Commands
 - `/trackeravailable` - Lists all available trackers that can be monitored
-- `/trackeradd <tracker> <channel>` - Start monitoring a tracker and send notifications to the specified channel
-- `/trackerremove <tracker> <channel>` - Stop monitoring a tracker in the specified channel
-- `/trackerlist` - Show all currently monitored trackers and their notification channels
-- `/trackerversion` - Display the current version of both the bot and the trackerstatus library
+- `/trackeradd <tracker> <channel>` - Starts monitoring a tracker and sends notifications to the specified channel
+- `/trackerremove <tracker> <channel>` - Stops monitoring a tracker in the specified channel
+- `/trackerlist` - Shows all currently monitored trackers and their notification channels
+- `/trackerversion` - Displays the current version of both the bot and the trackerstatus library
+- `/trackerupdate` - Force an immediate status check of all configured trackers and post their current status
 
 ### Status Commands
 - `/trackerlatency <tracker>` - Get current latency metrics for each service of the specified tracker
