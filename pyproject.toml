@@ -9,7 +9,7 @@ packages = [{include = "trackerstatus_discord"}]
 [tool.poetry.dependencies]
 python = "^3.10"
 "discord.py" = "^2.5.2"
-trackerstatus = "1.0.7"
+trackerstatus = "1.0.8"
 python-dotenv = "^1.0.1"
 
 [tool.poetry.group.dev.dependencies]
