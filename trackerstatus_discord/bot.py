@@ -23,6 +23,9 @@ from trackerstatus import (
     REDEndpoint,
 )
 
+# Bot version
+VERSION = "0.1.0"
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -154,6 +157,7 @@ config: GuildConfigType = load_config()
 @bot.event
 async def on_ready() -> None:
     """Handle bot ready event."""
+    logger.info(f"TrackerStatus Discord Bot v{VERSION} starting up...")
     print(f"{bot.user} has connected to Discord!")
     print("Attempting to sync commands...")
     try:
