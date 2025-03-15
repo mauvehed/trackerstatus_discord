@@ -186,15 +186,20 @@ async def on_ready() -> None:
     
     Logs the bot startup, including versions of both the bot and trackerstatus library.
     Syncs slash commands with Discord and starts the tracker check loop.
+    Also displays a list of all available commands.
     """
     logger.info(f"Using trackerstatus library v{trackerstatus_version}")
     logger.info(f"TrackerStatus Discord Bot v{VERSION} starting up...")
     print(f"{bot.user} has connected to Discord!")
-    print("Attempting to sync commands...")
+    print("\nAttempting to sync commands...")
     try:
-        print("Available commands to sync:", [cmd.name for cmd in bot.tree.get_commands()])
+        commands = bot.tree.get_commands()
+        print(f"\nAvailable commands to sync ({len(commands)}):")
+        for cmd in commands:
+            print(f"  - /{cmd.name}: {cmd.description}")
+        
         synced = await bot.tree.sync()
-        print(f"Successfully synced {len(synced)} command(s):")
+        print(f"\nSuccessfully synced {len(synced)} command(s):")
         for cmd in synced:
             print(f"  - /{cmd.name}")
         check_trackers.start()
