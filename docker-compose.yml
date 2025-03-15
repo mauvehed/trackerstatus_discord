@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
   bot:
-    image: ghcr.io/mauvehed/trackerstatus_discord:main
+    image: ghcr.io/mauvehed/trackerstatus_discord:latest
     container_name: trackerstatus_discord
     volumes:
       - trackerstatus_discord:/app/data
