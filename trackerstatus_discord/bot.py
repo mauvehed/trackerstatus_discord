@@ -21,6 +21,7 @@ from trackerstatus import (
     OPSEndpoint,
     PTPEndpoint,
     REDEndpoint,
+    __version__ as trackerstatus_version,
 )
 
 # Bot version
@@ -683,6 +684,29 @@ async def trackerrecord(interaction: discord.Interaction, tracker: str) -> None:
             f"Error getting record statistics for {TRACKER_NAMES[tracker]}: {str(e)}",
             ephemeral=True
         )
+
+@bot.tree.command(name="trackerversion", description="Show bot and library versions")
+async def trackerversion(interaction: discord.Interaction) -> None:
+    """Display the current version of the bot and the trackerstatus library."""
+    embed = discord.Embed(
+        title="TrackerStatus Bot Version Information",
+        color=discord.Color.blue(),
+        timestamp=datetime.now()
+    )
+    
+    embed.add_field(
+        name="Bot Version",
+        value=f"v{VERSION}",
+        inline=True
+    )
+    
+    embed.add_field(
+        name="TrackerStatus Library",
+        value=f"v{trackerstatus_version}",
+        inline=True
+    )
+    
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 def run() -> None:
     """Run the Discord bot."""
