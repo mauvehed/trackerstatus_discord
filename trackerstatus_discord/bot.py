@@ -390,7 +390,11 @@ async def trackerlist(interaction: discord.Interaction) -> None:
 
 @tasks.loop(minutes=5)
 async def check_trackers() -> None:
-    """Check the status of all trackers and send notifications for changes."""
+    """Check the status of all trackers and send notifications for changes.
+    
+    Only sends notifications for transitions between Online (1) and Offline (0) states.
+    Unstable (2) state changes are tracked but do not trigger notifications.
+    """
     try:
         logger.info("Starting periodic tracker status check...")
         # Get status for all trackers using the library's endpoint
@@ -425,7 +429,22 @@ async def check_trackers() -> None:
                         )
                         continue
 
-                    # If this is the first check or status has changed
+                    # Only send alerts for changes between Online (1) and Offline (0)
+                    # First check: skip if both old and new status are Unstable (2)
+                    if status_code == 2 and tracker_data["last_status"] == 2:
+                        continue
+                        
+                    # Second check: skip if transitioning to/from Unstable
+                    if (status_code == 2 or tracker_data["last_status"] == 2):
+                        # Just update the status without sending a notification
+                        config[guild_id]["trackers"][tracker_name].update({
+                            "last_status": status_code,
+                            "last_check": datetime.now().isoformat()
+                        })
+                        save_config(config)
+                        continue
+
+                    # If this is the first check or status has changed between Online/Offline
                     if (tracker_data["last_status"] is None or 
                         status_code != tracker_data["last_status"]):
                         
@@ -434,12 +453,10 @@ async def check_trackers() -> None:
                         # Log the status change
                         old_status = "None" if tracker_data["last_status"] is None else (
                             "Online" if tracker_data["last_status"] == 1 else
-                            "Unstable" if tracker_data["last_status"] == 2 else
                             "Offline"
                         )
-                        new_status = ("Online" if status_code == 1 else
-                                    "Unstable" if status_code == 2 else
-                                    "Offline")
+                        new_status = "Online" if status_code == 1 else "Offline"
+                        
                         logger.info(
                             f"Status change for {TRACKER_NAMES[tracker_name]} in {guild.name}: "
                             f"{old_status} -> {new_status}"
@@ -453,7 +470,6 @@ async def check_trackers() -> None:
                                 f"**Message:** {status_message}"
                             ),
                             color=discord.Color.green() if status_code == 1 else 
-                                  discord.Color.yellow() if status_code == 2 else 
                                   discord.Color.red(),
                             timestamp=datetime.now()
                         )
