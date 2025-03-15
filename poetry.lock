@@ -955,14 +955,14 @@ files = [
 
 [[package]]
 name = "trackerstatus"
-version = "1.0.5"
+version = "1.0.7"
 description = "A Python client for the TrackerStatus.info API"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "trackerstatus-1.0.5-py3-none-any.whl", hash = "sha256:9000ad7f997f3b6e75767992e3a1ec6a41fd35d47b70abd87a0d33d55585510b"},
-    {file = "trackerstatus-1.0.5.tar.gz", hash = "sha256:0ceee313235cc099086b60c47dd417eeab55d267eaa722b395b082e28c9c2480"},
+    {file = "trackerstatus-1.0.7-py3-none-any.whl", hash = "sha256:56870f20c71b41d0877bd8ea4e49a06b89cf79ebb5a37938525059528706bf8c"},
+    {file = "trackerstatus-1.0.7.tar.gz", hash = "sha256:8fe82be59d339a7dd625c7f1151a24f03cdc4ce98d6a0381b9a2bb12bef312c1"},
 ]
 
 [package.dependencies]
@@ -1099,4 +1099,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.10"
-content-hash = "7c194c6ed83986c4a4095a78b077e83e432a231501f6d87b06dfa8ecbcbdee65"
+content-hash = "07882111dd2dc99eb2add6e48b5c7423fa183c7ff3b91e3a09b2f52fb4b0b44e"
