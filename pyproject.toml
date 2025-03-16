@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "trackerstatus-discord"
-version = "0.1.0"
+version = "0.2.0"
 description = "A Discord bot that monitors trackerstatus.info and sends notifications"
 authors = ["mauvehed <nate@mvh.dev>"]
 readme = "README.md"
