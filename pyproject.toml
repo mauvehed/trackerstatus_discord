@@ -25,14 +25,25 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 check_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+show_error_codes = true
+pretty = true
+implicit_optional = true
 
 [[tool.mypy.overrides]]
-module = ["discord.*", "trackerstatus.*", "dotenv.*", "pytest.*", "_pytest.*"]
+module = [
+    "discord.*",
+    "trackerstatus.*",
+    "dotenv.*"
+]
 ignore_missing_imports = true
 
 [tool.black]
@@ -52,7 +63,10 @@ disable = [
     "R0913",  # too-many-arguments
     "R0914",  # too-many-locals
     "W0703",  # broad-except
+    "E0401",  # import-error (we know the packages are installed)
+    "W1203",  # logging-fstring-interpolation (we want to use f-strings)
+    "W1309",  # f-string-without-interpolation (we want consistent string formatting)
 ]
 
 [tool.pytest.ini_options]
-asyncio_mode = "auto" 
+asyncio_mode = "auto"

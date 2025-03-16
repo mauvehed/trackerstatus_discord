@@ -34,7 +34,6 @@ repos:
         additional_dependencies:
           - types-requests>=2.31.0
           - discord.py>=2.3.2
-        args: [--ignore-missing-imports]
 
   - repo: https://github.com/pycqa/pylint
     rev: v3.3.5
