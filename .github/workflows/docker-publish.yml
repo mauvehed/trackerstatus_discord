@@ -1,8 +1,6 @@
 name: Docker Build and Publish
 
 on:
-  push:
-    tags: [ 'v*.*.*' ]
   workflow_run:
     workflows: ["CI"]
     types:
@@ -15,7 +13,9 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_commit.ref, 'refs/tags/v')
     permissions:
       contents: read
       packages: write
