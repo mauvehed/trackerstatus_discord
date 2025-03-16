@@ -35,7 +35,6 @@ repos:
           - types-requests>=2.31.0
           - discord.py>=2.3.2
         args: [--ignore-missing-imports]
-        files: ^trackerstatus_discord/.*\.py$
 
   - repo: https://github.com/pycqa/pylint
     rev: v3.3.5
@@ -44,7 +43,6 @@ repos:
         args:
           - --max-line-length=100
           - --disable=C0111,C0301,C0103,R0913,R0914,W0703
-        files: ^trackerstatus_discord/.*\.py$
 
   - repo: local
     hooks:
