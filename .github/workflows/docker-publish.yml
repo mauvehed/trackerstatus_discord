@@ -1,21 +1,32 @@
 name: Docker Build and Publish
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types:
-      - completed
+  push:
+    tags: [ 'v*.*.*' ]
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build:
+  wait-for-ci:
     runs-on: ubuntu-latest
-    if: |
-      github.event.workflow_run.conclusion == 'success' &&
-      startsWith(github.event.workflow_run.head_commit.ref, 'refs/tags/v')
+    outputs:
+      success: ${{ steps.wait-for-ci.outputs.success }}
+    steps:
+      - name: Wait for CI
+        id: wait-for-ci
+        uses: lewagon/wait-on-check-action@v1.3.1
+        with:
+          ref: ${{ github.ref }}
+          check-name: 'CI'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 10
+
+  build:
+    needs: [wait-for-ci]
+    if: needs.wait-for-ci.outputs.success == 'true'
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write

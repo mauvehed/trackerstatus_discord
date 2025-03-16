@@ -12,6 +12,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      success: ${{ steps.set-result.outputs.success }}
     strategy:
       matrix:
         python-version: ["3.9", "3.10", "3.11", "3.12"]
@@ -45,4 +47,8 @@ jobs:
         poetry run pylint \
           --disable=C0111,C0301,C0103,R0913,R0914,W0703 \
           --max-line-length=100 \
-          trackerstatus_discord 
+          trackerstatus_discord
+
+    - name: Set result output
+      id: set-result
+      run: echo "success=true" >> $GITHUB_OUTPUT 
