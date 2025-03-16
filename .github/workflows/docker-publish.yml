@@ -12,16 +12,54 @@ jobs:
   wait-for-ci:
     runs-on: ubuntu-latest
     outputs:
-      success: ${{ steps.wait-for-ci.outputs.success }}
+      success: ${{ steps.wait-for-ci.outputs.conclusion == 'success' }}
     steps:
       - name: Wait for CI
         id: wait-for-ci
-        uses: lewagon/wait-on-check-action@v1.3.1
+        uses: actions/github-script@v7
         with:
-          ref: ${{ github.ref }}
-          check-name: 'CI'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 10
+          script: |
+            const ref = context.ref;
+            let success = false;
+            
+            // Wait for up to 5 minutes
+            for (let i = 0; i < 30; i++) {
+              const result = await github.rest.checks.listForRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: context.sha,
+                per_page: 100
+              });
+              
+              // Look for any test job
+              const testRuns = result.data.check_runs.filter(run => 
+                run.name.startsWith('test (')
+              );
+              
+              if (testRuns.length > 0) {
+                // Check if all test jobs are completed
+                const allCompleted = testRuns.every(run => 
+                  run.status === 'completed'
+                );
+                
+                if (allCompleted) {
+                  // Check if all tests passed
+                  success = testRuns.every(run => 
+                    run.conclusion === 'success'
+                  );
+                  break;
+                }
+              }
+              
+              // Wait 10 seconds before checking again
+              await new Promise(resolve => setTimeout(resolve, 10000));
+            }
+            
+            core.setOutput('conclusion', success ? 'success' : 'failure');
+            
+            if (!success) {
+              core.setFailed('CI checks did not pass');
+            }
 
   build:
     needs: [wait-for-ci]
