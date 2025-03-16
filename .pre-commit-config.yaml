@@ -1,6 +1,6 @@
 # .pre-commit-config.yaml
 # Configuration for pre-commit hooks to maintain code quality
-exclude: '(\..*\.y[a]?ml|\.github/workflows|\.envrc|\.direnv)'
+exclude: '^(\.github/workflows/.*|\.envrc|\.direnv/.*|poetry\.lock)$'
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
