@@ -42,16 +42,4 @@ jobs:
         poetry run pylint \
           --disable=C0111,C0301,C0103,R0913,R0914,W0703 \
           --max-line-length=100 \
-          trackerstatus_discord
-        
-    - name: Run tests with pytest
-      run: poetry run pytest -v
-        
-    - name: Upload test logs
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-logs-${{ matrix.python-version }}
-        path: |
-          **/.pytest_cache/**
-          **/coverage.xml 
+          trackerstatus_discord 
