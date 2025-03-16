@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "trackerstatus-discord"
-version = "0.2.0"
+version = "0.3.0"
 description = "A Discord bot that monitors trackerstatus.info and sends notifications"
 authors = ["mauvehed <nate@mvh.dev>"]
 readme = "README.md"
@@ -9,7 +9,7 @@ packages = [{include = "trackerstatus_discord"}]
 [tool.poetry.dependencies]
 python = "^3.10"
 "discord.py" = "^2.5.2"
-trackerstatus = "1.0.8"
+trackerstatus = "1.0.10"
 python-dotenv = "^1.0.1"
 
 [tool.poetry.group.dev.dependencies]

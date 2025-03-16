@@ -27,7 +27,7 @@ from trackerstatus import (
 from trackerstatus import __version__ as trackerstatus_version
 
 # Bot version
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 # Configure logging
 logging.basicConfig(
